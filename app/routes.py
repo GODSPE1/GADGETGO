@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, make_response
+import json
 import uuid
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -198,7 +199,65 @@ def add_products(current_user):
     # Return a success message
     return jsonify({'message': 'Product added successfully'})
 
-    @app.route('/product/<product>')
+
+
+@app.route('/product/<product_name>', methods=['GET'])
+@token_required
+def get_one_product(product_name):
+    """Fetch a product using the product name"""
+
+    product = Product.query.filter_by(product_name).first()
+
+    if not product:
+        return jsonify({ 'message': 'Product not found'})
     
+    return jsonify({'product name': Product.product_name, 'title': Product.title, 'Description': Product.description, 'Product price': Product.price})
 
 
+
+@app.route('/product/<edit>', methods=['PUT'])
+@token_required
+def edit_product(current_user, product_name):
+    """edit the value of a product"""
+
+    # Check if the user has admin privileges
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorized to perform this function!'})
+    
+    #make a request
+    data = request.get_json()
+
+    product = Product.query.filter_by(name=product_name).first()
+
+
+    product.product_name = json_data['name']
+    product.title = json_data['title']
+    product.description = json_data['description']
+    product.price = json_data['price']
+    product.image = json_data['image']
+
+    # save to the database
+    db.session.commit()
+
+    return jsonify({ 'message' : 'Product succesfully edited' })
+
+
+@app.route('/product/<product_name>', methods=['DELETE'])
+@token_required
+def edit_product(current_user, product_name):
+    """edit the value of a product"""
+
+    # Check if the user has admin privileges
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorized to perform this function!'})
+    
+    #make a request
+    data = request.get_json()
+
+    product = Product.query.filter_by(name=product_name).first()
+
+    if product:
+        Product.delete(product)
+        
+        return jsonify({ 'message': 'Product successfuly deleted'})
+    return jsonify({ 'message': 'Something went wrong'})
