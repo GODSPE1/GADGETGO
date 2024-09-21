@@ -4,8 +4,6 @@ This is an E-commerce api
 
 RESTful HTTP API using Python Flask that allows users to manage their ecommerce platform.
 
-<br><br>
-
 ### Signin User
 - Create a user 
 - users can login
@@ -65,22 +63,21 @@ To test the API using Postman, install postman agent in your OS and call the API
 
 #### Fetch users
 - [GET] `/user>` - Retrieve a list of customers
-<br></br>
+
 - [GET] `/user/<id: int>` - Retrieve a specific customer by their ID.
-<br></br>
+
 - [POST] `/user/<id: int>` - Update customer information.
-<br></br>
+
 - [DELETE] `/user/<id: int>` - Delete a customer account.
 
-
 #### Product
-<br><br>
+
 - [GET] `/products` - Get all products
-<br><br>
+
 - [GET] `/product/(int: product_id)` - Get product with product_id
-<br><br>
+
 - [DELETE] `/product/(int: product_id)` - Delete product with product_id
-<br><br>
+
 - [POST] `/product/create` - Create a new product
 
 ```
@@ -106,9 +103,9 @@ To test the API using Postman, install postman agent in your OS and call the API
 
 #### Categories
 - [GET] `/categorie` - Retrieve a list of categories.
-<br><br>
+
 - [GET] `/categories/<id: int>` - Retrieve a specific category by its ID.
-<br><br>
+
 - [POST] `/categories` - Create a new category.
 
 - [PUT] `/categories/{id}: Update an existing category.
