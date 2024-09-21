@@ -1,12 +1,10 @@
 from app import db
-from flask_login import UserMixin
 
 # Product Model
 class Product(db.Model):
     """Product Model class"""
     
     id = db.Column(db.Integer, primary_key=True)
-    product_name = db.Column(db.String(256))
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(1024), nullable=False)
     price = db.Column(db.Float, nullable=False)
@@ -41,7 +39,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(60), nullable=False)
     admin = db.Column(db.Boolean, default=False)
-    orders = db.relationship('Order', backref='customer', lazy='dynamic')
+    orders = db.relationship('Order', backref='user', lazy='dynamic')
 
     def __repr__(self):
         """Return a string representation of the user object"""
@@ -52,17 +50,11 @@ class User(db.Model):
         db.session.add(self)
         db.session.commit()
 
-    def delete(self):
-        """Delete the user from the database"""
-        db.session.delete(self)
-        db.session.commit()
-
 # Order Model
 class Order(db.Model):
     """Order Model class"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    user = db.relationship('User', backref='customer_orders')  # Changed from 'orders' to 'customer_orders'
 
     def __repr__(self):
         return f"<Order {self.id}>"
@@ -75,8 +67,8 @@ class OrderProduct(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
     quantity = db.Column(db.Integer, nullable=False, default=1)
 
-    order = db.relationship('Order', backref='order_products')
-    product = db.relationship('Product', backref='order_products')
+    order = db.relationship('Order', backref='orderproducts', cascade="all, delete")
+    product = db.relationship('Product', backref='orderproducts', cascade="all, delete")
        
     def __repr__(self):
         return f"OrderProduct {self.order_id} {self.product_id}"
@@ -85,4 +77,4 @@ class Category(db.Model):
     """Category Model class"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    db.image = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(1024), nullable=False)
