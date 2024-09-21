@@ -113,15 +113,14 @@ To test the API using Postman, install postman agent in your OS and call the API
 - [DELETE] `TE /categories/{id}: Delete a category. 
 
 #### Orders
-<br><br>
 - [GET] `/user>` - Retrieve a list of customers orders
-<br><br>
+
 - [GET] `/user>` - Retrieve a list of customers
-<br><br>
+
 - [GET] `/orders/<id: int>` -  Retrieve a specific order by its ID for a customer.
-<br><br>
+
 - [POST] `/orders` - Create a new order.
-<br><br>
+
 - [PUT] `/orders/<id: int>` - Update an existing order (e.g., change shipping address).  
-<br><br>
+
 - [DELETE] `/orders/<id: int>` - Cancel an order.
