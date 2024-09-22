@@ -1,263 +1,624 @@
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify, make_response, abort
 import json
 import uuid
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import app
 import jwt
-from app.models import User, Product
+from app.models import User, Product, Order, OrderProduct, Category
 from functools import wraps
+from app import db
+from sqlalchemy import or_
 
-
+# Decorator to require token
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
 
-        # Check if token is present in headers
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
+        auth_headers = request.headers.get('Authorization')
+        
+        if not auth_headers:
+            return jsonify({'message': 'Authourization header is missing'})
+        
+        token = request.headers['Authorization'].split(" ")[1]
 
-        # Return if no token is provided
         if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
+            return jsonify({'message': 'Authorization token is missing!'}), 401
 
         try:
-            # Decode the token using the app's secret key
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
             current_user = User.query.filter_by(username=data['username']).first()
-
         except jwt.ExpiredSignatureError:
             return jsonify({'message': 'Token has expired!'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'message': 'Token is invalid!'}), 401
 
-        # Pass the current_user to the wrapped function
         return f(current_user, *args, **kwargs)
-
     return decorated
 
 
 
-@app.route('/user/<username>', methods=['GET'])
-def get_one_user(current_user, username):
+@app.route('/', methods=['GET'])
+@app.route('/home', methods=['GET'])
+def home():
+    """test function"""
+    return jsonify({'message': "Welcome to our home page now"})
 
+
+
+
+# Route to get user details
+@app.route('/user/<username>', methods=['GET'])
+@token_required
+def get_one_user(current_user, username):
     if not current_user.admin:
-        return jsonify({ 'message' : 'Unauthoriseed to perform this function!'})
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
 
     user = User.query.filter_by(username=username).first()
 
     if not user:
-        return jsonify({'message' : 'no user'})
+        return jsonify({'message': 'No user found!'}), 404
 
-    return jsonify({'username': user.username, 'email': user.email, 'admin': user.admin})
+    return jsonify({'username': user.username, 'email': user.email, 'admin': user.admin}), 200
 
-@app.route('/user', methods=['GET'])
+
+
+
+# Route to get all users
+@app.route('/users', methods=['GET'])
 @token_required
-def get_all_user(current_user):
-    """get all user"""
+def get_all_users(current_user):
 
+    # check if user is an admin
     if not current_user.admin:
-        return jsonify({ 'message' : 'Unauthoriseed to perform this function!'})
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
 
+    # queey the database
     users = User.query.all()
     output = []
-
     for user in users:
-        user_data = {}
-        user.username
-        user_data['password'] = user.password
-        user_data['email'] = user.email
-        user_data['emai'] = user.admin
+        user_data = {
+            'username': user.username,
+            'email': user.email,
+            'admin': user.admin
+        }
         output.append(user_data)
 
-    return jsonify({ 'users': output })
+    return jsonify({'users': output}), 200
 
 
-@app.route('/user', methods=['POST'])
+
+# Route to create a new user
+@app.route('/user/create', methods=['POST'])
 @token_required
 def create_user(current_user):
-    """creates a user"""
+    # Check if the current user is an admin
+        if not current_user.admin:
+            return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+    
 
-    if not current_user.admin:
-        return jsonify({ 'message' : 'Unauthoriseed to perform this function!'})
+    # Register a user using try exception
+        try:
+            register()
+        
+            return jsonify({'message': 'New user created!'}), 201
+
+        except Exception as e:
+            return jsonify({'message': 'Failed to create user', 'error': str(e)}), 400
 
 
-    data = request.get_json()
 
-    hashed_password = generate_password_hash(data['password'], method='pbkdf2:sha256')
-
-    new_user = User(username=data['username'], email=data['email'], password=hashed_password, admin=False)
-    new_user.save()
-
-    return jsonify({'message': 'New user created' })
-
-@app.route('/user/<user_id>', methods=['PUT'])
-def promote_user():
-    return ''
-
-@app.route('/user/<user_id>', methods=['DELETE'])
+# Route to delete a user
+@app.route('/user/delete/<username>', methods=['DELETE'])
+@token_required
 def delete_user(current_user, username):
-
+    # check if current user is admin
     if not current_user.admin:
-        return jsonify({ 'message' : 'Unauthoriseed to perform this function!'})
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+
+    try: 
+        # Query the database to find user
+        user = User.query.filter_by(username=username).first()
+
+        if not user:
+            return jsonify({'message': 'No user found!'}), 404
+
+        db.session.delete(user)
+        db.session.commit()
+
+        return jsonify({'message': 'User deleted!'}), 200
     
-    if not user:
-        return jsonify({ 'message' : 'No user found!'})
-    delete(username)
+    except Exception as e:
+        return jsonify({'message' 'Internal server error'}), 500
 
 
 
-@app.route('/register', methods=['GET', 'POST'])
+# Route to register a new user (public access)
+@app.route('/register', methods=['POST'])
 def register():
-    email = request.json['email']
-    password = request.json['password']
+    try:
+        # Extract the data from the request body
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        username = data.get('username')
+        admin = data.get('admin', False)  # Default to False if not provided
+
+        # Validate the input fields
+        if not email or not password or not username:
+            return jsonify({'message': 'Invalid credentials. Email, password, and username are required.'}), 400
+
+        # Check if the user already exists
+        existing_user = User.query.filter(
+            or_(User.email == email, User.username == username)
+        ).first()
+        
+        if existing_user:
+            if existing_user.username == username:
+                return jsonify({'error': 'Username already exists'}), 409
+            if existing_user.email == email:
+                return jsonify({'error': 'Email already exists'}), 409
+
+        # Hash the password securely
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+
+        # Create a new user instance
+        new_user = User(username=username, email=email, password=hashed_password, admin=bool(admin))
+
+        # Add the new user to the session and commit
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({'message': 'User registered successfully', 'user_id': new_user.id}), 201
+
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error during registration: {str(e)}")
+        return jsonify({'error': 'An error occurred during registration. Please try again later.'}), 500
 
 
-    user_exists = User.query.filter_by(email=email).first() is not None
 
-    if user_exists:
-        return jsonify({ 'error': 'User already exists' }), 409
-
-    hashed_password
-
-
-@app.route("/login", methods=['GET', 'POST'])
+# Route to login and receive token
+@app.route('/login', methods=['POST'])
 def login():
-    auth = request.authorization
-    if not auth or not auth.username or not auth.password:
-        return make_response('Could not verify', 401, {'WWW-Authenticate' : 'Basic realm="Login required!"'})
-
-    user = User.query.filter_by(username=auth.username).first()
-
-    if not user:
-        return jsonify({'message': 'No user found'})
-
-    if check_password_hash(user.password, auth.password):
-        token = jwt.encode(
-            {'token_id': str(uuid.uuid4()), 'exp': datetime.datetime.now() + datetime.timedelta(minutes=2)}, 
-            app.config['SECRET_KEY']
-        )
-
-        return jsonify({'token': token})
-
-    return make_response('Could not verify', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
+    # auth = request.authorization
 
 
-@app.route('/logout', methods=['GET', 'POST'])
-def logout():
-    db.session.delete()
-    db.session.commit()
-
-"""
-Products: Allow the admin to add new products using the POST /api/products
-endpoint. Fetch all available products using GET /api/products.
-"""
-
-
-@app.route('/products', methods=['GET'])
-def products():
-    """Fetch all available produts"""
+    # if not auth or not auth.username or not auth.password:
+    #     return make_response('Could not verify password', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
     
-    #query the database for all products
-    products = Product.query.all()
-
-    return ({ 'products' : products})
-
-
-
-@app.route('/products', methods=['POST'])
-@token_required
-def add_products(current_user):
-    """Admin to add new products"""
-
-    # Check if the user has admin privileges
-    if not current_user.admin:
-        return jsonify({'message': 'Unauthorized to perform this function!'})
-
-    # Get the product data from the request
     data = request.get_json()
+    password = data.get('password')
+    username = data.get('username')
+    print(password)
+    print(username)
+    print
 
-    # Create a new Product object
-    new_product = Product(prod_id=data['prod_id'], category=data['category'],
-                          title=data['title'], description=data['description'],
-                          price=data['price'], image=data['image'], order=['order'])
+    user = User.query.filter_by(username=username).first()
 
-    # Fetch all existing products from the database
-    all_products = Product.query.all()
+    if not user or not check_password_hash(user.password, password):
+        return make_response('Could not verify username', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
-    # Check if a similar product already exists
-    for product in all_products:
-        if (new_product.prod_id == product.prod_id and 
-            new_product.category == product.category and 
-            new_product.title == product.title):
-            return jsonify({'message': 'Product already exists'})
+    try:
+        token = jwt.encode(
+        {'username': user.username, 'exp': datetime.datetime.now() + datetime.timedelta(minutes=30)},
+        app.config['SECRET_KEY']
+        )
+    except Exception as e:
+        return jsonify({'message': 'Error in tokenization'}), 403
 
-    # If no matching product was found, save the new product
-    new_product.save()  # Ensure that save() method correctly handles adding and committing the product
+    if isinstance(token, bytes):
+        token = token.decode('utf-8')
+    token_type = (type(token))
+    return jsonify({
+        'token-type': token_type
+        'token': token
+        }), 200
 
-    # Return a success message
-    return jsonify({'message': 'Product added successfully'})
+
+# Route to fetch all products
+@app.route('/products', methods=['GET'])
+def get_products():
+    """Function to fetch all the products
+
+    Return: the list of all products in a json format
+    """
+    #Query the database for all products
+    try:
+
+        products = Product.query.all()
+        output = [{'title': product.title, 'price': product.price} for product in products]
+
+        return jsonify({'products': output}), 200
+    
+    except Exception as e:
+        return jsonify({'message': 'Couldn\'t  finish this operation! try again'}), 500
 
 
 
-@app.route('/product/<product_name>', methods=['GET'])
-@token_required
+
+# Route to fetch a single product by name
+@app.route('/products/<product_name>', methods=['GET'])
 def get_one_product(product_name):
-    """Fetch a product using the product name"""
-
-    product = Product.query.filter_by(product_name).first()
+    product = Product.query.filter_by(title=product_name).first()
 
     if not product:
-        return jsonify({ 'message': 'Product not found'})
-    
-    return jsonify({'product name': Product.product_name, 'title': Product.title, 'Description': Product.description, 'Product price': Product.price})
+        return jsonify({'message': 'Product not found'}), 404
+
+    return jsonify({
+        'title': product.title,
+        'description': product.description,
+        'price': product.price,
+        'category': product.category
+    }), 200
 
 
 
-@app.route('/product/<edit>', methods=['PUT'])
+
+# Route to add new products (admin only)
+@app.route('/products', methods=['POST'])
 @token_required
-def edit_product(current_user, product_name):
-    """edit the value of a product"""
-
-    # Check if the user has admin privileges
+def add_product(current_user):
     if not current_user.admin:
-        return jsonify({'message': 'Unauthorized to perform this function!'})
-    
-    #make a request
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+
     data = request.get_json()
 
-    product = Product.query.filter_by(name=product_name).first()
+    # Check if product already exists
+    existing_product = Product.query.filter_by(title=data['title']).first()
+    if existing_product:
+        return jsonify({'message': 'Product already exists'}), 409
 
-
-    product.product_name = json_data['name']
-    product.title = json_data['title']
-    product.description = json_data['description']
-    product.price = json_data['price']
-    product.image = json_data['image']
-
-    # save to the database
+    new_product = Product(
+        prod_id=str(uuid.uuid4()), 
+        category=data['category'], 
+        title=data['title'], 
+        description=data['description'], 
+        price=data['price'],
+        image=data['image']
+    )
+    db.session.add(new_product)
     db.session.commit()
 
-    return jsonify({ 'message' : 'Product succesfully edited' })
+    return jsonify({'message': 'Product added successfully!'}), 201
 
 
-@app.route('/product/<product_name>', methods=['DELETE'])
+
+
+# Route to edit a product (admin only)
+@app.route('/products/<product_name>', methods=['PUT'])
 @token_required
 def edit_product(current_user, product_name):
-    """edit the value of a product"""
-
-    # Check if the user has admin privileges
     if not current_user.admin:
-        return jsonify({'message': 'Unauthorized to perform this function!'})
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+
+    data = request.get_json()
+    product = Product.query.filter_by(title=product_name).first()
+
+    if not product:
+        return jsonify({'message': 'Product not found'}), 404
+
+    product.title = data.get('title', product.title)
+    product.description = data.get('description', product.description)
+    product.price = data.get('price', product.price)
+    product.image = data.get('image', product.image)
+
+    db.session.commit()
+
+    return jsonify({'message': 'Product updated successfully!'}), 200
+
+
+
+
+# Route to delete a product (admin only)
+@app.route('/products/<product_name>', methods=['DELETE'])
+@token_required
+def delete_products(current_user, product_name):
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+
+    product = Product.query.filter_by(title=product_name).first()
+
+    if not product:
+        return jsonify({'message': 'Product not found'}), 404
+
+    db.session.delete(product)
+    db.session.commit()
+
+    return jsonify({'message': 'Product deleted successfully!'}), 200
+
+
+
+
+# Retrieve a list of orders
+@token_required
+def all_order(current_user):
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+
+    orders = Order.query.all()  # Fetch all orders
+    output = [{'orderId': order.id, 'userId': order.user_id} for order in orders]
     
-    #make a request
+    return jsonify({'List of orders': output})
+
+
+
+# Fetch user orders
+@app.route('/orders/<id>', methods=['GET'])
+@token_required
+def get_one_order(current_user):
+    """get a specfic oder for the user"""
+    if not current_user:
+        return jsonify({ 'message': 'User does not exit'})
+    
+    current_user_oder = current_user.order
+
+    if not current_user_oder:
+        return jsonify({ 'message': 'order doesn\'t exist'})
+    
+    return jsonify({'user orders': current_user_oder})
+
+
+
+@app.route('/orders', methods=['POST'])
+@token_required
+def create_order(current_user):
+    """Create a new order for the user"""
+
+    data = request.get_json() 
+
+    if request.method == 'POST':
+
+        #check if data is present
+        if not data or 'product_id' not in data or 'quantity' not in data:
+            return jsonify({'message': 'Missing required fields'}), 400
+
+        # Create a new order associated with the current user
+        new_order = Order(
+            user_id=current_user.id,
+            product_id=data['product_id'],
+            quantity=data['quantity'],
+            status=data['status']
+        )
+
+        # Add the new order to the session
+        db.session.add(new_order)
+        db.session.commit()
+
+        return jsonify({'message': 'Order created successfully'}), 201
+
+
+
+@app.route('/orders/<id>', methods=['PUT'])
+@token_required
+def update_order(current_user, id):
+    """Update an order associated with a user"""
+    if not current_user:
+        return jsonify({'message': 'Unauthorized'}), 401
+    
     data = request.get_json()
 
-    product = Product.query.filter_by(name=product_name).first()
+    # Find the order by its ID.
+    # check if it belongs to the current user
+    existing_order = Order.query.filter_by(id=id, user_id=current_user.id).first()
+    
+    if not existing_order:
+        return jsonify({'message': 'Order does not exist or does not belong to the current user'}), 404
 
-    if product:
-        Product.delete(product)
-        
-        return jsonify({ 'message': 'Product successfuly deleted'})
-    return jsonify({ 'message': 'Something went wrong'})
+    if 'quantity' in data:
+        existing_order.quantity = data['quantity']
+    if 'product_id' in data:
+        existing_order.product_id = data['product_id']
+    
+    # Commit the changes to the database
+    db.session.commit()
+    
+    return jsonify({'message': 'Order has been updated successfully'}), 200
+
+
+
+@app.route('/orders/<id>/', methods=['DELETE'])
+@token_required
+def delete_an_order(current_user, id):
+    """delete an order associated with a user"""
+    
+    if not current_user:
+        return jsonify({'message': 'Unauthorized'}), 401
+
+    # Query a specific order based on ID
+    user_order = Order.query.filter_by(id=id, user_id=current_user.id).first()
+
+    if not user_order:
+        return jsonify({'message': 'Order does not exist or does not belong to the current user'}), 404
+
+    # Delete the order
+    db.session.delete(user_order)
+    db.session.commit()
+
+    return jsonify({'message': 'Order has been deleted successfully'}), 200
+
+
+
+
+@app.route('/categry', methods=['POST'])
+@token_required
+def create_category(current_user):
+    """create a category"""
+    if not current_user.admin:
+        return jsonify({ 'message' : 'Unauthorized'}), 403
+     
+    data = request.get_json()
+
+    existing_category = Category.query.filter(name=data['name'].lower().strip()).first()
+    if existing_category:
+        return jsonify({'message': 'Category already exist'}), 400
+    
+    try:
+        new_category = Category(
+            name = data['name'],
+            description = data['description']
+        )
+
+        db.session.add(new_category)
+        db.session.commit()
+        return jsonify({
+            'message': 'Category created Successfully',
+            'name': new_category.name,
+            'description': new_category.description
+
+        }), 201
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error creating Category', 'error': str(e)}), 500
+
+
+
+@app.route('/categories', methods=['GET'])
+@token_required
+def get_all_categories(current_user):
+    """Retrieve a list of categories."""
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorized'}), 403
+    
+    # Query the database
+    category_list = Category.query.all()
+
+    if not category_list:
+        return jsonify({'message': 'No categories found'}), 404
+    
+    output = []
+
+    # Prepare the output list with category details
+    for category in category_list:
+        category_data = {
+            'id': category.id,
+            'name': category.name,
+            'description': category.description
+        }
+        output.append(category_data)
+
+    # Return the entire list of categories
+    return jsonify({'categories': output}), 200
+
+
+
+
+@app.route('/categories/<id>', methods=['GET'])
+@token_required
+def get_one_category(current_user, id):
+    """Retrieve a specific category by its ID"""
+
+    if not current_user:
+        return jsonify({'message': 'Unauthorized'}), 403
+    
+    # Query for a specific category using id
+    category = Category.query.filter_by(id=id).first()
+
+    if not category:
+        return jsonify({'message': 'Category not found'}), 404
+    
+    # Format the category data for the response
+    try:
+        category_data = {
+            'id': category.id,
+            'name': category.name,
+            'image': category.description
+        }
+        return jsonify({'category': category_data}), 200
+    except Exception as e:
+        return jsonify({'message': 'An error occurred while processing the category'}), 500
+
+
+
+@app.route('/categories/<id>', methods=['PUT'])
+@token_required
+def update_category(current_user, id):
+    """Update an existing category"""
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorised'}), 403
+    
+
+    data = request.get_json()
+
+    existing_category = Category.query.filter_by(id=id).first()
+    
+    if not existing_category:
+        return jsonify({'message': 'Category Not Found'}), 404
+    
+    try:
+        existing_category.id = data.get('name', existing_category.id)
+        existing_category.name = data.get('name', existing_category.name)
+        existing_category.description = data('description', existing_category.description)
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Category Succesfully updated',
+            'id': existing_category.id,
+            'name': existing_category.name,
+            'description': existing_category.description
+        })
+    except Exception as e:
+        return jsonify({'message': 'Error updating the category'})
+
+
+@app.route('/categories/<id>', methods=['DELETE'])
+@token_required
+def delete_category(current_user, id):
+    """Delete a category"""
+    
+    if not current_user.admin:
+        return jsonify({'message': 'Unauthorised'}), 403
+    
+    category = Category.query.filter_by(id=id).first()
+
+    if not category:
+        return jsonify({'message': 'Category not found'}), 403
+    try:
+        db.session.delete(category)
+        db.session.commit()
+
+        return jsonify({'message': 'Succesfully deleted categry'}), 200
+    
+    except Exception as e:
+        return jsonify({'message': 'Error while deleting category'}), 500
+
+
+@app.route('/payment_callback', methods=['GET'])
+def paymentCallback():
+    """handles payment"""
+
+    reference = request.args.get('reference')
+
+    if not reference:
+        return jsonify({"No reference provided"}), 400
+
+    # Verify User payment
+    response = request.get(f'https://api.paystack.co/transaction/verify/{reference}', 
+                            headers={'Authorization': f"Bearer {os.getenv('PAYSTACK_SECRET_KEY')}"})
+
+    if response.status_code == 200:
+
+        data = response.json().get('data', {})
+        status = data.get('status')
+        if status == 'success':
+            customer = data.get('customer', {})
+            email = customer.get('email')
+            if email:
+
+                # Update user's payment status in the database
+                #user = PaymentStatus.query.filter_by(email=email).first()
+                if user:
+                    user.is_paid = True
+                    db.session.commit()
+                    return redirect(url_for('pages.register_applicant'))
+                else:
+                    return "User not found", 400
+            else:
+                return "Email not found in Paystack response", 400
+        else:
+            return f"Payment verification failed: {status}", 400
+    else:
+        return "Failed to verify payment with Paystack", 400
