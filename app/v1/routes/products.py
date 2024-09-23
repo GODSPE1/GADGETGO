@@ -69,11 +69,11 @@ def get_products():
     try:
 
         products = Product.query.all()
-        output = [{'title': product.title, 'price': product.price} for product in products]
+        output = [{'id': product.id, 'title': product.title, 'price': product.price} for product in products]
 
         # check if there is no product
         if not output:
-            return jsonify({'message': 'No product found'})
+            return jsonify({'message': 'No product found'}), 404
 
         return jsonify({'products': output}), 200
     
@@ -81,63 +81,90 @@ def get_products():
         return jsonify({'message': 'Couldn\'t  finish this operation! try again'}), 500
 
 
-
-
 # Route to fetch a single product by name
-@product.route('/<product_name>', methods=['GET'])
-def get_one_product(product_name):
-    my_product = Product.query.filter_by(title=product_name).first()
+@product.route('/<id>', methods=['GET'])
+def get_one_product(id):
+    """Fetch a single product by ID"""
+    # Query the database for a product by its id
+    try:
+        my_product = Product.query.filter(Product.id == id).first()
 
-    if not product:
-        return jsonify({'message': 'Product not found'}), 404
+        if not my_product:
+            return jsonify({'message': 'Product not found'}), 404
 
-    return jsonify({
-        'title': my_product.title,
-        'description': my_product.description,
-        'price': my_product.price,
-        'category': my_product.category
-    }), 200
+        return jsonify({
+            'id': my_product.id,
+            'title': my_product.title,
+            'description': my_product.description,
+            'price': my_product.price,
+        }), 200
+
+    except Exception as e:
+        return jsonify({'message': 'Error fetching product'}), 500
 
 
 # Route to edit a product (admin only)
-@product.route('/<product_name>', methods=['PUT'])
+@product.route('/<id>', methods=['PUT'])
 @token_required
-def edit_product(current_user, product_name):
+def edit_product(current_user, id):
+    """Edit a product"""
+
+    # check for admin priviledges
     if not current_user.admin:
         return jsonify({'message': 'Unauthorized to perform this function!'}), 403
 
-    data = request.get_json()
-    my_product = Product.query.filter_by(title=product_name).first()
+    try:
+        # query the database
+        data = request.get_json()
+        my_product = Product.query.filter_by(Product.id==id).first()
 
-    if not product:
-        return jsonify({'message': 'Product not found'}), 404
+        # check if product is found
+        if not my_product:
+            return jsonify({'message': 'Product not found'}), 404
 
-    my_product.title = data.get('title', my_product.title)
-    my_product.description = data.get('description', my_product.description)
-    my_product.price = data.get('price', my_product.price)
-    my_product.image = data.get('image', my_product.image)
+        # check fields that was provided
+        if 'title' in data:
+            my_product.title = data.get('title', my_product.title)
+        
+        if 'description' in data:
+            my_product.description = data.get('description', my_product.description)
+        
+        if 'price' in data:
+            my_product.price = data.get('price', my_product.price)
 
-    db.session.commit()
+        #save to the database
+        db.session.commit()
 
-    return jsonify({'message': 'Product updated successfully!'}), 200
-
-
+        return jsonify({'message': 'Product updated successfully!'}), 200
+    
+    except Exception as e:
+        return jsonify({'message' 'Error editing products'}), 500
 
 
 # Route to delete a product (admin only)
-@product.route('/<product_name>', methods=['DELETE'])
+@product.route('/<id>', methods=['DELETE'])
 @token_required
-def delete_products(current_user, product_name):
+def delete_products(current_user, id):
+    """deletes a product from the list of products"""
+    
+    #check for admin priviledge
     if not current_user.admin:
         return jsonify({'message': 'Unauthorized to perform this function!'}), 403
 
-    product = Product.query.filter_by(title=product_name).first()
+    try:
+        # query the database for products
+        my_product = Product.query.get(id)
 
-    if not product:
-        return jsonify({'message': 'Product not found'}), 404
+        #check if product is found 
+        if not my_product:
+            return jsonify({'message': 'Product not found'}), 404
 
-    db.session.delete(product)
-    db.session.commit()
+        # delete a product and save to the database
+        db.session.delete(my_product)
+        db.session.commit()
 
-    return jsonify({'message': 'Product deleted successfully!'}), 200
-
+        return jsonify({'message': 'Product deleted successfully!'}), 200
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Could not delete the product, try again', 'error': str(e)}), 500
