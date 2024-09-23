@@ -13,6 +13,11 @@ auth = Blueprint(name="auth", import_name=__name__)
 # Route to register a new user (public access)
 @auth.route('/register', methods=['POST'])
 def register():
+    """
+    handles the registering of new users using the data gotten
+
+    Return: returs a 201 Response.
+    """
     try:
         # check if content type is application/json
         if request.headers.get("Content-Type") != "application/json":
@@ -37,6 +42,7 @@ def register():
         if existing_user:
             if existing_user.username == username:
                 return jsonify({'error': 'Username already exists'}), 409
+            
             if existing_user.email == email:
                 return jsonify({'error': 'Email already exists'}), 409
 
@@ -62,6 +68,14 @@ def register():
 # Route to login and receive token
 @auth.route('/login', methods=['POST'])
 def login():
+    """
+    Handles the login feature of the User to check if the user has access
+    to the api and returns a token
+
+    Return:
+        string token and a response status to indicate a successful
+        login of the user
+    """
 
     # check if content type is application/json
     if request.headers.get("Content-Type") != "application/json":
@@ -80,13 +94,17 @@ def login():
         return make_response('Could not verify username', 401, {'WWW-Authenticate': 'Basic realm="Login required!"'})
 
     try:
+        # Give expiry date to the token
         now = datetime.datetime.now()
         payload = {
             'username': user.username,
             'exp': now + datetime.timedelta(minutes=30)
         }
+
+        # Generate a token for registered and login
         token = jwt.encode(payload=payload, key=current_app.config['SECRET_KEY'], algorithm='HS256')
         
+        # Check for token is bytes and decode to string
         if isinstance(token, bytes):
             token = token.decode('utf-8')
             
@@ -94,6 +112,7 @@ def login():
         print(e)
         return jsonify({'message': 'Error in tokenization'}), 403
 
+    # return token and token type
     return jsonify({
         'token-type': "bearer",
         'token': token
