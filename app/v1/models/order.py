@@ -15,7 +15,6 @@ class OrderProduct(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
-    product_name = db.Column(db.String)
     quantity = db.Column(db.Integer, nullable=False, default=1)
 
     order = db.relationship('Order', backref='orderproducts', cascade="all, delete")
