@@ -85,8 +85,6 @@ def login():
     data = request.get_json()
     password = data.get('password')
     username = data.get('username')
-    print(password)
-    print(username)
 
     user: User | None = User.query.filter_by(username=username).first()
 
@@ -98,7 +96,7 @@ def login():
         now = datetime.datetime.now()
         payload = {
             'username': user.username,
-            'exp': now + datetime.timedelta(minutes=30)
+            'exp': now + datetime.timedelta(minutes=3600)
         }
 
         # Generate a token for registered and login
