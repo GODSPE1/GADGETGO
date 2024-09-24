@@ -2,7 +2,7 @@
 """ This module defines the order route and features
 """
 from flask import request, jsonify
-from app.v1.models import Order
+from app.v1.models import Order, User
 from app.v1 import db
 from flask import Blueprint
 
@@ -12,6 +12,7 @@ from app.v1.utils.token_manager import token_required
 order = Blueprint(import_name=__name__, name="order", url_prefix="/orders")
 
 # Retrieve a list of orders
+@order.route('/admin', methods=['GET'])
 @token_required
 def all_order(current_user):
     """Get all the order in the database"""
@@ -39,11 +40,46 @@ def all_order(current_user):
 # Fetch user orders
 @order.route('/<id>', methods=['GET'])
 @token_required
+def get_user_orders(current_user, id):
+    """Get all orders associated to a specific user"""
+
+    try:
+        #check if the user is logged in
+        if not current_user:
+            return jsonify({ 'message': 'User does not exit'})
+        
+        #Query the user by their id
+        user= User.query.get(id)
+
+        # check if user exist
+        if not user:
+            return jsonify({ 'message': 'User not found'}), 404
+        
+        #get all the orders associated to the user
+        user_orders = user.orders
+
+        output = []
+        for order in  user_orders:
+            order_data = {'orderId': order.id, 'userId': order.user_id}
+            output.append(order_data)
+
+        if not output:
+            return ({'message': 'Orders not found'}), 404
+
+        return jsonify({'user orders': output})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error fecthing the order'}), 500
+
+
+# Fetch user order
+@order.route('/<id>', methods=['GET'])
+@token_required
 def get_one_order(current_user, id):
     """get a specfic order for the user"""
 
     try:
-
         #check if the user is logged in
         if not current_user:
             return jsonify({ 'message': 'User does not exit'})
@@ -55,6 +91,12 @@ def get_one_order(current_user, id):
         if not user_oder:
             return jsonify({ 'message': 'order doesn\'t exist'})
         
+        order_data = {'orderId': user_oder.id, 'userId': user_oder.user_id}
+        
+        if not order_data:
+            return jsonify({'message': 'Order not found'}), 404
+        
+
         return jsonify({'user orders': user_oder})
     
     except Exception as e:
@@ -62,7 +104,7 @@ def get_one_order(current_user, id):
         return jsonify({'message': 'Error fecthing the order'}), 500
 
 
-@order.route('', methods=['POST'])
+@order.route('/', methods=['POST'])
 @token_required
 def create_order(current_user):
     """Create a new order for the user"""
