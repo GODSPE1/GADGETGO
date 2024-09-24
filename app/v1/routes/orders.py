@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """ This module defines the order route and features
 """
+
+
 from flask import request, jsonify
 from app.v1.models import Order, User, Product, OrderProduct
 from app.v1 import db
 from flask import Blueprint
-
 from app.v1.utils.token_manager import token_required
 
 
@@ -18,7 +19,7 @@ def all_order(current_user):
     """Get all the order in the database"""
 
     try:
-        # Check for admin priviledge
+#       Check for admin priviledge
         if not current_user.admin:
             return jsonify({'message': 'Unauthorized to perform this function!'}), 403
 
@@ -65,8 +66,8 @@ def get_user_orders(current_user, id):
 
         if not output:
             return ({'message': 'Orders not found'}), 404
-
-        return jsonify({'user orders': output})
+    
+        return jsonify({'Your orders are': output})
     
     except Exception as e:
         db.session.rollback()
@@ -107,44 +108,42 @@ def get_one_order(current_user, id):
 @order.route('/create', methods=['POST'])
 @token_required
 def create_order(current_user):
-    """Create a new order for the user"""
+    """Create a new order for the user
+
+    Return: the order id
+    """
 
     data = request.get_json()
-    #check if data is present
-    if not data:
-        return jsonify({'message': 'data not found'}), 404
-    
 
-    if 'quantity' not in data:
-        return jsonify({'message': 'Missing quantity field'}), 400
+    # Check if data is valid and contains a list of products
+    if not data or 'products' not in data:
+        return jsonify({'message': 'Missing required fields'}), 400
 
-    # Create a new order associated with the current user
-    new_order = Order(
-        user_id=current_user.id,
-    )
-
-    # Add the new order to the session
+    new_order = Order(user_id=current_user.id)
     db.session.add(new_order)
-    db.session.commit()
+    db.session.flush()
 
-    for item in data['products']:
-        product_id = item.get('product_id')
-        quantity = item.get('qauntity')
-
-    product = Product.query.filter(product_id).first()
-    if product:
-        return jsonify({'message': 'product not found'}), 400
+    products = data['products']
     
-    order_product = OrderProduct(
-        order_id=new_order.id,
-        product_id=product_id,
-        quantity=quantity
-    )
-    db.session.add(order_product)
+    for item in products:
+        product_id = item.get('product_id')
+        quantity = item.get('quantity', 1)
+
+        # Check if the product exists
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'message': f'Product with id {product_id} does not exist'}), 404
+
+        order_product = OrderProduct(
+            order_id=new_order.id,
+            product_id=product_id,
+            quantity=quantity
+        )
+        db.session.add(order_product)
 
     db.session.commit()
-    return jsonify({'message': 'Order created successfully'}), 201
 
+    return jsonify({'message': 'Order created successfully', 'order_id': new_order.id}), 201
 
 
 @order.route('/<id>', methods=['PUT'])
@@ -152,11 +151,10 @@ def create_order(current_user):
 def update_order(current_user, id):
     """Update an order associated with a user"""
     if not current_user:
-        return jsonify({'message': 'Unauthorized'}), 401
+        return jsonify({'message': 'Authentication failed'}), 401
     
     data = request.get_json()
 
-    # Find the order by its ID.
     # check if it belongs to the current user
     existing_order = Order.query.filter_by(id=id, user_id=current_user.id).first()
     
@@ -175,7 +173,7 @@ def update_order(current_user, id):
 
 
 
-@order.route('/<id>/', methods=['DELETE'])
+@order.route('/delete/<id>/', methods=['DELETE'])
 @token_required
 def delete_an_order(current_user, id):
     """delete an order associated with a user"""
