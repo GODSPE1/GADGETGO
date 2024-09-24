@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+""" This module defines the order route and features
+"""
 from flask import request, jsonify
 from app.v1.models import Order
 from app.v1 import db
@@ -11,31 +14,52 @@ order = Blueprint(import_name=__name__, name="order", url_prefix="/orders")
 # Retrieve a list of orders
 @token_required
 def all_order(current_user):
-    if not current_user.admin:
-        return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+    """Get all the order in the database"""
 
-    orders = Order.query.all()  # Fetch all orders
-    output = [{'orderId': order.id, 'userId': order.user_id} for order in orders]
+    try:
+        # Check for admin priviledge
+        if not current_user.admin:
+            return jsonify({'message': 'Unauthorized to perform this function!'}), 403
+
+        # Fetch all orders
+        orders = Order.query.all()
+        output = [{'orderId': order.id, 'userId': order.user_id} for order in orders]
+        
+        # check if the order is empty
+        if not output:
+            return ({'message': 'No order Found try again'})
+        
+        #return list of orders
+        return jsonify({'List of orders': output})
     
-    return jsonify({'List of orders': output})
-
+    except Exception as e:
+        return jsonify({'message': 'Error Fetching orders'}), 500
 
 
 # Fetch user orders
 @order.route('/<id>', methods=['GET'])
 @token_required
-def get_one_order(current_user):
-    """get a specfic oder for the user"""
-    if not current_user:
-        return jsonify({ 'message': 'User does not exit'})
-    
-    current_user_oder = current_user.order
+def get_one_order(current_user, id):
+    """get a specfic order for the user"""
 
-    if not current_user_oder:
-        return jsonify({ 'message': 'order doesn\'t exist'})
-    
-    return jsonify({'user orders': current_user_oder})
+    try:
 
+        #check if the user is logged in
+        if not current_user:
+            return jsonify({ 'message': 'User does not exit'})
+        
+        #Query the database for orders
+        user_oder = Order.query.filter_by(id=id).first()
+
+        # check if user exist
+        if not user_oder:
+            return jsonify({ 'message': 'order doesn\'t exist'})
+        
+        return jsonify({'user orders': user_oder})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error fecthing the order'}), 500
 
 
 @order.route('', methods=['POST'])
