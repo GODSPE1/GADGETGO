@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
 from flask import Blueprint
 from flask import request, jsonify, make_response, current_app
 import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
 import jwt
+from app.v1.utils.token_manager import token_required, request_token
+from app.v1.utils.is_logout import log_out_token
 
 from app.v1.models import User
 from app.v1 import db
@@ -115,3 +118,16 @@ def login():
         'token-type': "bearer",
         'token': token
         }), 200
+
+
+@auth.route('/logout', methods=['POST'])
+@token_required
+def logout(current_user):
+    """
+    Handles the logout the user
+
+    Return: A farewell message
+    """
+    token = request_token()
+    log_out_token(token)
+    return jsonify({'message': 'Successfully logged out'}), 200
