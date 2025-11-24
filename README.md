@@ -15,112 +15,150 @@ Add New Product
 Update a product
 See all users
 Create a user
-Delete a user
+# GADGETGO — E-commerce REST API
 
-<br></br>
-Ability to create, read, update, and delete products, categories. A category can have multiple subcategor.
-Products can belong to multiple categories and subcategories.
-<br></br>
-Fetching a product fetches the details of categories.
-<br><br> 
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue)
+![Flask](https://img.shields.io/badge/Flask-3.0-green)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-### Usage
+**GADGETGO** is a robust, production-ready RESTful API for an e-commerce platform. It provides a complete backend solution for managing users, products, categories, orders, and payments. Built with Flask and SQLAlchemy, it features secure JWT authentication, role-based access control, and image handling.
 
-## Installation
+## 🚀 Features
 
-Create a project folder and a flask folder within:
+- **User Management**: Registration, Login (JWT), Logout (Token Blacklist), Profile management.
+- **Product Catalog**: CRUD operations for products and categories.
+- **Order Processing**: Create, view, update, and cancel orders.
+- **Image Handling**: Support for product images (via Pillow).
+- **Security**: Password hashing (Bcrypt), JWT Authentication, Token Blacklisting.
+- **Database**: SQLAlchemy ORM with SQLite (default) or PostgreSQL/MySQL support.
+- **Migrations**: Database schema migrations using Flask-Migrate.
+- **Deployment Ready**: Gunicorn configuration included.
 
-````
-mkdir flask
-cd flask
-py -3 -m venv flaskApp
+## 🛠️ Tech Stack
 
-````
-## How to run
+- **Framework**: Flask
+- **Database**: SQLAlchemy (ORM), SQLite (Dev)
+- **Authentication**: PyJWT, Flask-Login
+- **Forms/Validation**: Flask-WTF
+- **Utilities**: Pillow (Images), Flask-Mail (Email), Flask-Migrate (DB Migrations)
+- **Server**: Gunicorn
 
-````
+## 📂 Project Structure
+
+```
+GADGETGO/
+├── app/
+│   └── v1/
+│       ├── models/       # Database models (User, Product, Order)
+│       ├── routes/       # API endpoints (Blueprints)
+│       ├── utils/        # Helper functions (Auth, Tokens)
+│       ├── templates/    # HTML templates (if using UI)
+│       └── __init__.py   # App factory
+├── instance/             # SQLite database location
+├── migrations/           # Database migration scripts
+├── config.py             # Configuration settings
+├── run.py                # Entry point
+├── requirements.txt      # Dependencies
+└── README.md             # Documentation
+```
+
+## ⚡ Installation & Setup
+
+### Prerequisites
+- Python 3.8+
+- Git
+
+### 1. Clone the Repository
+```bash
 git clone https://github.com/GODSPE1/GADGETGO.git
+cd GADGETGO
+```
 
-pip install requirements.txt
+### 2. Create Virtual Environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
 
-set FLASK_ENV=development
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
 
-set DEBUG_MODE=1
+### 4. Environment Configuration
+Create a `.env` file in the root directory:
+```bash
+export SECRET_KEY="your-super-secret-key"
+export FLASK_APP=run.py
+export FLASK_ENV=development
+```
 
+### 5. Initialize Database
+```bash
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
+```
+*Note: If you just want to run with the default setup, the app will create the DB on first run if configured in `__init__.py`.*
+
+### 6. Run the Application
+```bash
 flask run
-
-````
-
-Start the server:
-
-`python run.py` (Starts the server on 127.0.0.1:5000)
-
-This project is preloaded with a dummy `sqlite` database located in the `instance` directory. To start from a scratch db, delete the `instance` directory and start the server.
-
-To test the API using Postman, install postman agent in your OS and call the API using Postman.
-
-### Endpoints
-
-#### Fetch users
-- [GET] `/user>` - Retrieve a list of customers
-
-- [GET] `/user/<id: int>` - Retrieve a specific customer by their ID.
-
-- [POST] `/user/<id: int>` - Update customer information.
-
-- [DELETE] `/user/<id: int>` - Delete a customer account.
-
-#### Product
-
-- [GET] `/products` - Get all products
-
-- [GET] `/product/(int: product_id)` - Get product with product_id
-
-- [DELETE] `/product/(int: product_id)` - Delete product with product_id
-
-- [POST] `/product/create` - Create a new product
-
 ```
-{
-  "title": "name",
-  "description": "description",
-  "categories"s //optional
-  "price" = "price of product"
-  "image" = "image of product"
-}
+The API will be available at `http://127.0.0.1:5000`.
+
+## 📖 API Documentation
+
+### Authentication
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/auth/register` | Register a new user | No |
+| `POST` | `/auth/login` | Login & get JWT token | No |
+| `POST` | `/auth/logout` | Logout (Blacklist token) | **Yes** |
+
+### Products
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/products` | Get all products | No |
+| `GET` | `/products/<id>` | Get product details | No |
+| `POST` | `/products` | Create a product | **Admin** |
+| `PUT` | `/products/<id>` | Update a product | **Admin** |
+| `DELETE` | `/products/<id>` | Delete a product | **Admin** |
+
+### Orders
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/orders` | Get all orders | **Admin** |
+| `POST` | `/orders` | Place a new order | **User** |
+| `GET` | `/orders/<id>` | Get order details | **User/Admin** |
+
+## 🧪 Testing
+
+Run the tests (if available) or use `curl` to test endpoints manually.
+
+**Example: Login**
+```bash
+curl -X POST http://127.0.0.1:5000/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin", "password":"password"}'
 ```
 
-- [PUT] `/product/(int: product_id)/update` - Update product with product_id
-```
-{
-  "title": "name",
-  "description": "description",
-  "categories"s //optional
-  "price" = "price of product"
-  "image" = "image of product"
-}
+## 🚀 Deployment
+
+To run in production using Gunicorn:
+
+```bash
+gunicorn -w 4 -b 0.0.0.0:8000 run:app
 ```
 
-#### Categories
-- [GET] `/categorie` - Retrieve a list of categories.
+## 🤝 Contributing
 
-- [GET] `/categories/<id: int>` - Retrieve a specific category by its ID.
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-- [POST] `/categories` - Create a new category.
+## 📄 License
 
-- [PUT] `/categories/{id}: Update an existing category.
-
-- [DELETE] `TE /categories/{id}: Delete a category. 
-
-#### Orders
-- [GET] `/user>` - Retrieve a list of customers orders
-
-- [GET] `/user>` - Retrieve a list of customers
-
-- [GET] `/orders/<id: int>` -  Retrieve a specific order by its ID for a customer.
-
-- [POST] `/orders` - Create a new order.
-
-- [PUT] `/orders/<id: int>` - Update an existing order (e.g., change shipping address).  
-
-- [DELETE] `/orders/<id: int>` - Cancel an order.
+Distributed under the MIT License. See `LICENSE` for more information.
