@@ -4,3 +4,5 @@ Werkzeug
 click
 itsdangerous
 MarkupSafe
+gunicorn
+psycopg2-binary
