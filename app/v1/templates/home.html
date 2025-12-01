@@ -2,11 +2,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
+    <meta-name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <p> Home Page</p>    
-    <a href="/v1/about">Go to About</a>
+    <div class="container">
+        <h1>Welcome to the Gadgetgo E-Commerce API</h1>
+        <p>This is the home endpoint of our API.</p>
+
+        <div class="endpoints">
+            <h3>Available Endpoints</h3>
+
+            <div class="endpoint">
+                <strong>GET</strong> — <a href="/v1/about"> /v1/about </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            © {{ year }} Your API Service
+        </div>
+    </div>
 </body>
 </html>
