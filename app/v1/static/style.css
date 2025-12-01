@@ -1,0 +1,43 @@
+body {
+    background: rgba(15, 236, 199, 0.897) !important;
+}
+
+:root {
+    --bg: #f7f7f7;
+    --fg: #222;
+    --card-bg: #ffffff;
+    --accent: #0077ff;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #121212;
+        --fg: #e1e1e1;
+        --card-bg: #1e1e1e;
+        --accent: #4da3ff;
+    }
+}
+
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    max-width: 650px;
+    width: 90%;
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+/* ...rest of your styles ... */
