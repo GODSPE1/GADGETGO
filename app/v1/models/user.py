@@ -17,4 +17,4 @@ class User(db.Model):
     def save(self):
         """Save the user to the database"""
         db.session.add(self)
-        db.session.commit()
+        # db.session.commit() never commit here, commit should be done in the route after all operations are successful

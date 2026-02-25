@@ -2,25 +2,43 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta-name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GadgetGo API</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to the Gadgetgo E-Commerce API</h1>
-        <p>This is the home endpoint of our API.</p>
+        <h1>GadgetGo E-Commerce API</h1>
+        <p class="subtitle">RESTful API for managing products, users, and orders.</p>
 
-        <div class="endpoints">
-            <h3>Available Endpoints</h3>
+        <div class="section">
+            <h2>API Information</h2>
+            <p><strong>Base URL:</strong> {{ request.host_url }}/</p>
+            <p><strong>Version:</strong> v1</p>
+            <p><strong>Status:</strong> Running</p>
+        </div>
+
+        <div class="section">
+            <h2>Available Endpoints</h2>
 
             <div class="endpoint">
-                <strong>GET</strong> — <a href="/v1/about"> /v1/about </a>
+                <span class="method get">GET</span>
+                <a href="/v1/about">/v1/about</a>
+                <span class="description">API information</span>
             </div>
+
+            <!-- Add more endpoints below -->
+            <!--
+            <div class="endpoint">
+                <span class="method post">POST</span>
+                <span>/v1/products</span>
+                <span class="description">Create a product</span>
+            </div>
+            -->
         </div>
 
         <div class="footer">
-            © {{ year }} Your API Service
+            © {{ year }} GadgetGo API
         </div>
     </div>
 </body>
