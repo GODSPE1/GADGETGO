@@ -13,3 +13,4 @@ idna
 requests
 urllib3
 PyJWT
+flasgger
